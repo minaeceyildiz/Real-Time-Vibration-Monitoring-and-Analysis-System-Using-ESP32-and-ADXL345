@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Titreşim Sensörü Grafiği ve Tablosu</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden; /* Taşan içerikleri gizler */
+        }
+        #container {
+            width: 100%;
+            max-width: 1200px; /* Maksimum genişlik ayarı */
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: auto; /* İçeriğin taşmasını engellemek için */
+        }
+        #chart-container {
+            width: 100%;
+            height: 400px; /* Grafik yüksekliği */
+            max-width: 1200px;
+            margin-bottom: 20px;
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            max-width: 1200px;
+            overflow-x: auto; /* Taşan tablo içeriğini kaydırmak için */
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h2>Titreşim Sensörü Grafiği ve Tablosu</h2>
+        <div id="chart-container">
+            <canvas id="myChart"></canvas>
+        </div>
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>Ölçüm Numarası</th>
+                    <th>X Değeri</th>
+                    <th>Y Değeri</th>
+                    <th>Z Değeri</th>
+                    <th>Durum</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Veriler buraya eklenecek -->
+            </tbody>
+        </table>
+    </div>
+    <script>
+        const ctx = document.getElementById('myChart').getContext('2d');
+        let myChart;
+        let labels = [];
+        let xValues = [];
+        let yValues = [];
+        let zValues = [];
+
+        async function fetchData() {
+            try {
+                const response = await fetch('get_data.php');
+                const data = await response.json();
+                console.log(data); // Veriyi kontrol etmek için
+                return data;
+            } catch (error) {
+                console.error('Veri çekme hatası:', error);
+                return [];
+            }
+        }
+
+        function updateChart() {
+            if (myChart) {
+                myChart.data.labels = labels;
+                myChart.data.datasets[0].data = xValues;
+                myChart.data.datasets[1].data = yValues;
+                myChart.data.datasets[2].data = zValues;
+                myChart.update();
+            }
+        }
+
+        function updateTable(data) {
+            const tableBody = document.getElementById('dataTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = ''; // Önceki verileri temizle
+
+            data.forEach((item, index) => {
+                const row = tableBody.insertRow();
+                row.insertCell(0).textContent = index + 1;
+                row.insertCell(1).textContent = item.x;
+                row.insertCell(2).textContent = item.y;
+                row.insertCell(3).textContent = item.z;
+                row.insertCell(4).textContent = item.status || 'N/A';
+
+                // Anormal titreşim kontrolü (örnek eşik değeri: 10)
+                if (Math.abs(item.x) > 10 || Math.abs(item.y) > 10 || Math.abs(item.z) > 10) {
+                    row.style.backgroundColor = 'rgba(255, 99, 132, 0.2)'; // Kırmızı arka plan
+                }
+            });
+        }
+
+        async function renderChart() {
+            const data = await fetchData();
+            labels = data.map((_, index) => index + 1);
+            xValues = data.map(item => item.x);
+            yValues = data.map(item => item.y);
+            zValues = data.map(item => item.z);
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'X Değeri',
+                            data: xValues,
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Y Değeri',
+                            data: yValues,
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Z Değeri',
+                            data: zValues,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Ölçüm Numarası'
+                            },
+                            ticks: {
+                                autoSkip: true,
+                                maxTicksLimit: 20
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Değer'
+                            },
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            enabled: true,
+                            mode: 'index',
+                            intersect: false
+                        },
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'x'
+                            },
+                            zoom: {
+                                enabled: true,
+                                mode: 'x'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Veri güncelleme aralığı
+            setInterval(async () => {
+                const newData = await fetchData();
+                labels.push(labels.length + 1);
+                xValues.push(newData[newData.length - 1].x);
+                yValues.push(newData[newData.length - 1].y);
+                zValues.push(newData[newData.length - 1].z);
+
+                // En eski veriyi kaldır
+                if (labels.length > 50) {
+                    labels.shift();
+                    xValues.shift();
+                    yValues.shift();
+                    zValues.shift();
+                }
+
+                updateChart();
+                updateTable(newData);
+            }, 1000); // 1 saniyede bir güncelle
+        }
+
+        renderChart();
+    </script>
+</body>
+</html>
