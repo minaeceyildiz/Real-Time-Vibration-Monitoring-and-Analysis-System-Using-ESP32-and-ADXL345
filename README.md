@@ -1,0 +1,1 @@
+# Real-Time-Vibration-Monitoring-and-Analysis-System-Using-ESP32-and-ADXL345
